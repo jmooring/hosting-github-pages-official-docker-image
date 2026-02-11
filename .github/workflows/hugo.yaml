@@ -1,0 +1,99 @@
+name: Build and deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: sh
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gohugoio/hugo:v0.155.3
+      options: --user root
+    env:
+      TZ: Europe/Oslo
+      HUGO_CACHEDIR: /tmp/hugo_cache
+
+    steps:
+      - name: Setup system tools
+        run: apk add --no-cache openssh-client tar
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Configure Git
+        run: |
+          git config --global --add safe.directory '*'
+          git config --global core.quotepath false
+
+      - name: Verify installations
+        run: |
+          echo "Dart Sass: $(sass --version)"
+          echo "Go: $(go version)"
+          echo "Hugo: $(hugo version)"
+          echo "Node.js: $(node --version)"
+
+      - name: Install Node dependencies
+        run: |
+          [ -f package-lock.json ] && npm ci || true
+
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.HUGO_CACHEDIR }}
+          key: hugo-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            hugo-${{ runner.os }}-
+
+      - name: Build site
+        run: |
+          hugo \
+            --gc \
+            --minify \
+            --baseURL "${{ steps.pages.outputs.base_url }}/" \
+            --cacheDir "${{ env.HUGO_CACHEDIR }}"
+
+      - name: Save build cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.HUGO_CACHEDIR }}
+          key: hugo-${{ runner.os }}-${{ github.run_id }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
