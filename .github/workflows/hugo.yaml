@@ -69,7 +69,7 @@ jobs:
 
       - name: Build site
         run: |
-          hugo \
+          hugo build \
             --gc \
             --minify \
             --baseURL "${{ steps.pages.outputs.base_url }}/" \
