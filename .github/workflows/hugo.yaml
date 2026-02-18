@@ -23,16 +23,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/gohugoio/hugo:v0.155.3
+      image: ghcr.io/gohugoio/hugo:v0.156.0
       options: --user root
     env:
       TZ: Europe/Oslo
       HUGO_CACHEDIR: /tmp/hugo_cache
 
     steps:
-      - name: Setup system tools
-        run: apk add --no-cache openssh-client tar
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
